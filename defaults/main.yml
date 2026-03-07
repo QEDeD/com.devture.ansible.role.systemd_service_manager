@@ -3,9 +3,26 @@
 devture_systemd_service_manager_enabled: true
 
 # devture_systemd_service_manager_services_list_auto contains a list of systemd services and their priorities.
-# This list is managed by the playbook. You're not meant to override this variable.
+# This list is managed by the playbook. You're not meant to override this variable directly.
+# To override specific auto-managed entries by service name, use `devture_systemd_service_manager_services_list_auto_overrides`.
 # To add your own items to the list, use `devture_systemd_service_manager_services_list_additional`
 devture_systemd_service_manager_services_list_auto: []
+
+# devture_systemd_service_manager_services_list_auto_overrides contains overrides for entries
+# from `devture_systemd_service_manager_services_list_auto`, keyed by service name.
+#
+# Supported keys in each override payload are:
+# - `priority`
+# - `restart_necessary`
+# - `groups`
+#
+# Example:
+# devture_systemd_service_manager_services_list_auto_overrides:
+#   some-service.service:
+#     priority: 1250
+#   another-service.service:
+#     groups: ['addon', 'reverse-proxy']
+devture_systemd_service_manager_services_list_auto_overrides: {}
 
 # devture_systemd_service_manager_services_list_additional contains your own list of systemd services and their priorities.
 #

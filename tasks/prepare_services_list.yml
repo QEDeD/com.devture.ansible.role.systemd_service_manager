@@ -1,0 +1,26 @@
+---
+
+- name: Initialize effective auto services list
+  ansible.builtin.set_fact:
+    devture_systemd_service_manager_services_list_auto_effective: []
+
+- name: Build effective auto services list
+  ansible.builtin.set_fact:
+    devture_systemd_service_manager_services_list_auto_effective: "{{ devture_systemd_service_manager_services_list_auto_effective + [item | combine(_override_normalized)] }}"
+  vars:
+    _override_raw: "{{ devture_systemd_service_manager_services_list_auto_overrides[item.name] | default({}) }}"
+    _override_normalized: >-
+      {{
+        {}
+        | combine({'priority': (_override_raw.priority | int)} if 'priority' in _override_raw else {})
+        | combine({'restart_necessary': (_override_raw.restart_necessary | bool)} if 'restart_necessary' in _override_raw else {})
+        | combine({'groups': _override_raw.groups} if 'groups' in _override_raw else {})
+      }}
+  loop: "{{ devture_systemd_service_manager_services_list_auto }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Build effective systemd services list
+  ansible.builtin.set_fact:
+    devture_systemd_service_manager_services_list_auto: "{{ devture_systemd_service_manager_services_list_auto_effective }}"
+    devture_systemd_service_manager_services_list: "{{ devture_systemd_service_manager_services_list_auto_effective + (devture_systemd_service_manager_services_list_additional | default([])) }}"

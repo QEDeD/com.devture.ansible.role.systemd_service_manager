@@ -32,14 +32,27 @@ Example playbook:
 Example playbook configuration (`group_vars/servers` or other):
 
 ```yaml
-# See `devture_systemd_service_manager_services_list_auto` and `devture_systemd_service_manager_services_list_additional`
+# See `devture_systemd_service_manager_services_list_auto`,
+# `devture_systemd_service_manager_services_list_auto_overrides`,
+# and `devture_systemd_service_manager_services_list_additional`
 devture_systemd_service_manager_services_list_auto: |
   {{
     ([{'name': 'some-service.service', 'priority': 1000}])
     +
     ([{'name': 'another-service.service', 'priority': 1500}])
   }}
+
+devture_systemd_service_manager_services_list_auto_overrides:
+  another-service.service:
+    priority: 1250
+  some-service.service:
+    groups: ['core', 'special']
 ```
+
+`devture_systemd_service_manager_services_list_auto_overrides` lets inventory override
+auto-managed entries by service name without replacing the whole generated list.
+Supported override fields are `priority`, `restart_necessary`, and `groups`.
+Unknown service names and unsupported fields fail validation.
 
 Example playbook invocations tags (e.g. `ansible-playbook -i inventory/hosts setup.yml --tags=XXXXX`):
 

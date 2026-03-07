@@ -1,7 +1,114 @@
 ---
 
+- name: Define supported auto override fields
+  ansible.builtin.set_fact:
+    devture_systemd_service_manager_services_list_auto_override_supported_fields:
+      - priority
+      - restart_necessary
+      - groups
+
 - name: Fail if devture_systemd_service_manager_service_restart_mode is invalid
   ansible.builtin.fail:
     msg: >-
       Invalid value: `{{ devture_systemd_service_manager_service_restart_mode }}`
   when: "devture_systemd_service_manager_service_restart_mode not in ['clean-stop-start', 'one-by-one', 'priority-batched', 'all-at-once']"
+
+- name: Fail if devture_systemd_service_manager_services_list_auto_overrides is not a mapping
+  ansible.builtin.fail:
+    msg: >-
+      Invalid value for `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ devture_systemd_service_manager_services_list_auto_overrides | to_nice_json }}`.
+      The value must be a mapping of service names to partial override payloads.
+  when: devture_systemd_service_manager_services_list_auto_overrides is not mapping
+
+- name: Fail if auto override targets unknown services
+  ansible.builtin.fail:
+    msg: >-
+      Invalid service name(s) in `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ _unknown_override_names | sort | join('`, `') }}`.
+      Valid auto-managed service names for this host are:
+      `{{ _auto_service_names | sort | join('`, `') }}`.
+  vars:
+    _auto_service_names: "{{ devture_systemd_service_manager_services_list_auto | map(attribute='name') | list }}"
+    _override_service_names: "{{ devture_systemd_service_manager_services_list_auto_overrides.keys() | list }}"
+    _unknown_override_names: "{{ _override_service_names | difference(_auto_service_names) }}"
+  when: _unknown_override_names | length > 0
+
+- name: Fail if auto override payload is not a mapping
+  ansible.builtin.fail:
+    msg: >-
+      Invalid override payload for `{{ item.key }}` in
+      `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ item.value | to_nice_json }}`.
+      Each override value must be a mapping.
+  loop: "{{ devture_systemd_service_manager_services_list_auto_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: item.value is not mapping
+
+- name: Fail if auto override payload contains unsupported fields
+  ansible.builtin.fail:
+    msg: >-
+      Invalid override field(s) for `{{ item.key }}` in
+      `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ _unsupported_fields | sort | join('`, `') }}`.
+      Supported fields are:
+      `{{ devture_systemd_service_manager_services_list_auto_override_supported_fields | join('`, `') }}`.
+      The `name` field is derived from the mapping key and cannot be overridden.
+  vars:
+    _unsupported_fields: "{{ item.value.keys() | list | difference(devture_systemd_service_manager_services_list_auto_override_supported_fields) }}"
+  loop: "{{ devture_systemd_service_manager_services_list_auto_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: item.value is mapping and (('name' in item.value) or (_unsupported_fields | length > 0))
+
+- name: Fail if auto override priority is invalid
+  ansible.builtin.fail:
+    msg: >-
+      Invalid `priority` override for `{{ item.key }}` in
+      `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ item.value.priority }}`.
+      The value must be an integer (or numeric string) greater than or equal to 0.
+  loop: "{{ devture_systemd_service_manager_services_list_auto_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: >-
+    item.value is mapping
+    and 'priority' in item.value
+    and not (
+      (item.value.priority | string | trim) is match('^[0-9]+$')
+      and (item.value.priority | int) >= 0
+    )
+
+- name: Fail if auto override restart_necessary is invalid
+  ansible.builtin.fail:
+    msg: >-
+      Invalid `restart_necessary` override for `{{ item.key }}` in
+      `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ item.value.restart_necessary }}`.
+      The value must be boolean.
+  loop: "{{ devture_systemd_service_manager_services_list_auto_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: >-
+    item.value is mapping
+    and 'restart_necessary' in item.value
+    and (item.value.restart_necessary | type_debug) != 'bool'
+
+- name: Fail if auto override groups is invalid
+  ansible.builtin.fail:
+    msg: >-
+      Invalid `groups` override for `{{ item.key }}` in
+      `devture_systemd_service_manager_services_list_auto_overrides`:
+      `{{ item.value.groups | to_nice_json }}`.
+      The value must be a list of strings.
+  loop: "{{ devture_systemd_service_manager_services_list_auto_overrides | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: >-
+    item.value is mapping
+    and 'groups' in item.value
+    and not (
+      (item.value.groups | type_debug) == 'list'
+      and ((item.value.groups | reject('string') | list | length) == 0)
+    )
